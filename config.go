@@ -33,5 +33,9 @@ func Configuration(config *Config, configurator configurator.Configurator) *Conf
 		config.AutoMigrate = configurator.GetBool(AutoMigrateFieldName)
 	}
 
+	if config.Driver == "" && getters.Len() == 1 {
+		config.Driver = getters.Keys()[0]
+	}
+
 	return config
 }
