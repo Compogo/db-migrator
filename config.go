@@ -1,6 +1,9 @@
 package db_migrator
 
-import "github.com/Compogo/compogo/configurator"
+import (
+	"github.com/Compogo/compogo/configurator"
+	"github.com/Compogo/db-client/driver"
+)
 
 const (
 	PathFieldName        = "migrator.source"
@@ -15,7 +18,7 @@ const (
 type Config struct {
 	Path        string
 	AutoMigrate bool
-	Driver      Driver
+	Driver      driver.Driver
 }
 
 func NewConfig() *Config {
