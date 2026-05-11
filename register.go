@@ -2,7 +2,6 @@ package db_migrator
 
 import (
 	"github.com/Compogo/compogo/container"
-	"github.com/Compogo/db-client/driver"
 	"github.com/Compogo/types/linker"
 	"github.com/golang-migrate/migrate/v4/database"
 )
@@ -10,7 +9,7 @@ import (
 var (
 	// getters stores constructor functions for each registered driver.
 	// The linker associates each Driver with its corresponding Getter.
-	getters = linker.NewLinker[driver.Driver, Getter]()
+	getters = linker.NewLinker[string, Getter](linker.KeyStringNormalizer[Getter]())
 )
 
 // Registration registers a new database driver constructor for migrations.
@@ -22,8 +21,8 @@ var (
 //	func init() {
 //	    db_migrator.Registration(Postgres, NewPostgresMigrationDriver)
 //	}
-func Registration(d driver.Driver, getter Getter) {
-	getters.Add(d, getter)
+func Registration(driverName string, getter Getter) {
+	getters.Add(driverName, getter)
 }
 
 // Getter is a function type that creates a new migration driver instance.

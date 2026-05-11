@@ -2,7 +2,6 @@ package db_migrator
 
 import (
 	"errors"
-	"time"
 
 	"github.com/Compogo/compogo/component"
 	"github.com/Compogo/compogo/container"
@@ -43,9 +42,6 @@ var Component = &component.Component{
 	}),
 	Configuration: component.StepFunc(func(container container.Container) error {
 		return container.Invoke(Configuration)
-	}),
-	ExecuteDuration: component.GetDurationFunc(func() time.Duration {
-		return 0
 	}),
 	Execute: component.StepFunc(func(container container.Container) error {
 		return container.Invoke(func(config *Config, migrator *migrate.Migrate, informer logger.Informer) error {

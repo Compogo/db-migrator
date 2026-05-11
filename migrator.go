@@ -19,7 +19,7 @@ import (
 //
 // The migrator is not started automatically — use the Component for lifecycle management.
 func NewMigrator(config *Config, container container.Container, informer logger.Informer) (*migrate.Migrate, error) {
-	path := strings.ReplaceAll(config.Path, DriverReplacement, config.Driver.String())
+	path := strings.ReplaceAll(config.Path, DriverReplacement, config.Driver)
 
 	informer.Infof("[db-migrator] migration path '%s'", path)
 
@@ -33,7 +33,7 @@ func NewMigrator(config *Config, container container.Container, informer logger.
 		return nil, fmt.Errorf("[db-migrator] driver '%s' create failed: %w", config.Driver, err)
 	}
 
-	informer.Infof("[db-migrator] usage sql driver '%s'", config.Driver.String())
+	informer.Infof("[db-migrator] usage sql driver '%s'", config.Driver)
 
-	return migrate.NewWithDatabaseInstance(path, strings.ToLower(config.Driver.String()), driver)
+	return migrate.NewWithDatabaseInstance(path, strings.ToLower(config.Driver), driver)
 }
