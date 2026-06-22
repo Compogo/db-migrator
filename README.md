@@ -1,34 +1,33 @@
-# Compogo DB Migrator 📦
+# Compogo DB Migrator
 
-**Compogo DB Migrator** — компонент для управления миграциями базы данных, построенный на базе [golang-migrate](https://github.com/golang-migrate/migrate). Полностью интегрируется с экосистемой Compogo.
+Мигратор для баз данных в фреймворке [Compogo](https://github.com/Compogo/compogo).
 
-## 🚀 Установка
+На основе [golang-migrate/migrate](https://github.com/golang-migrate/migrate) предоставляет:
+
+* Поддержку различных СУБД (MySQL, PostgreSQL, SQLite)
+* Автоматическое применение миграций при старте
+* Подстановку драйвера в путь к миграциям
+* Плагинную систему драйверов
+
+## Установка
 
 ```shell
 go get github.com/Compogo/db-migrator
 ```
 
-
-### 📦 Быстрый старт
+## Быстрый старт
 
 ```go
 package main
 
 import (
     "github.com/Compogo/compogo"
-    "github.com/Compogo/db-client"
     "github.com/Compogo/db-migrator"
-    _ "github.com/Compogo/postgres" // ваш драйвер БД
 )
 
 func main() {
     app := compogo.NewApp("myapp",
-        compogo.WithOsSignalCloser(),
-        db_client.Component,      // выбираем драйвер через --db.driver
-        db_migrator.Component,    // мигратор автоматически подхватит тот же драйвер
-        compogo.WithComponents(
-            // ... ваши компоненты
-        ),
+        compogo.WithComponents(&db_migrator.Component),
     )
 
     if err := app.Serve(); err != nil {
@@ -37,59 +36,107 @@ func main() {
 }
 ```
 
-### ✨ Возможности
+## Конфигурация
 
-#### 🔌 Плагинная архитектура драйверов
-
-Драйверы БД сами регистрируют свою реализацию для мигратора:
-
-```go
-// В драйвере postgres
-func init() {
-    db_migrator.Registration(Postgres, NewPostgresMigrationDriver)
-}
-```
-
-#### 📁 Умный путь к миграциям
-
-Путь к файлам миграций может содержать плейсхолдер `{db.driver}`:
+### Флаги командной строки
 
 ```shell
---migrator.source="file://./migrations/{db.driver}"
+# Путь к миграциям (с поддержкой плейсхолдера {db.driver})
+--migrator.source=file://./migrations/{db.driver}
+
+# Автоматическое применение миграций при старте
+--migrator.auto=true
 ```
 
-При использовании драйвера `postgres` путь автоматически станет `file://./migrations/postgres.`
+### Плейсхолдер `{db.driver}`
 
-#### 🚦 Автоматические миграции
+Путь к миграциям автоматически подставляет имя драйвера:
 
 ```shell
-./myapp --migrator.auto=true
+# Если указано:
+--migrator.source=file://./migrations/{db.driver}
+
+# И драйвер БД = "mysql", то путь будет:
+file://./migrations/mysql
+
+# Если драйвер = "postgres", то:
+file://./migrations/postgres
 ```
 
-Миграции выполняются в фазе `Execute` до запуска основных сервисов.
+## Использование
 
-#### ⏱️ Бесконечный таймаут
-
-Миграции — критическая операция, которую нельзя прерывать. Компонент устанавливает таймаут = 0, позволяя миграциям выполняться столько, сколько нужно.
-
-### 🔗 Интеграция с драйверами
-
-Драйверы должны зарегистрировать свою реализацию `database.Driver` для мигратора:
+### Ручное управление миграциями
 
 ```go
-type PostgresMigrationDriver struct {
-    // ...
-}
+var migrator *migrate.Migrate
+container.Invoke(func(m *migrate.Migrate) { migrator = m })
 
-func NewPostgresMigrationDriver(container container.Container) (database.Driver, error) {
-    var db *sql.DB
-    if err := container.Invoke(func(sqlDB *sql.DB) { db = sqlDB }); err != nil {
-        return nil, err
-    }
-    return postgres.WithConnection(db), nil
+// Применение всех миграций
+err := migrator.Up()
+
+// Откат одной миграции
+err := migrator.Down()
+
+// Принудительная установка версии
+err := migrator.Force(2)
+```
+
+### Проверка состояния
+
+```go
+version, dirty, err := migrator.Version()
+if err != nil {
+    log.Fatal(err)
 }
+log.Printf("Current version: %d, dirty: %v", version, dirty)
+```
+
+## Регистрация драйверов
+
+```go
+import (
+    "github.com/Compogo/db-migrator"
+    "github.com/golang-migrate/migrate/v4/database/postgres"
+)
 
 func init() {
-    db_migrator.Registration(Postgres, NewPostgresMigrationDriver)
+    db_migrator.Registration("postgres", func(container compogo.Container) (database.Driver, error) {
+        var db *sql.DB
+        container.Invoke(func(c *sql.DB) { db = c })
+        return postgres.WithInstance(db, &postgres.Config{})
+    })
 }
+```
+
+## Зависимости
+
+* [Compogo](https://github.com/Compogo/compogo) — основной фреймворк
+* [golang-migrate/migrate](https://github.com/golang-migrate/migrate) — библиотека миграций
+* [Compogo DB Client](https://github.com/Compogo/db-client) — клиент БД
+
+## Лицензия
+
+```plantuml
+MIT License
+
+Copyright (c) 2026 Compogo
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
 ```

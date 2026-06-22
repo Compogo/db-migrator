@@ -3,48 +3,52 @@ package db_migrator
 import (
 	"errors"
 
-	"github.com/Compogo/compogo/component"
-	"github.com/Compogo/compogo/container"
+	"github.com/Compogo/compogo"
 	"github.com/Compogo/compogo/flag"
-	"github.com/Compogo/compogo/logger"
 	"github.com/golang-migrate/migrate/v4"
 )
 
-// Component is a ready-to-use Compogo component that provides database migrations.
-// It automatically:
-//   - Registers Config and Migrator in the DI container
-//   - Adds command-line flags for migration configuration
-//   - Applies configuration during Configuration phase
-//   - Runs migrations (if enabled) during Execute phase with no timeout
+// Component — компонент мигратора для Compogo.
+// Регистрирует конфигурацию и мигратор в DI-контейнере.
+// Автоматически применяет миграции при старте, если AutoMigrate = true.
 //
-// Usage:
+// Пример подключения:
 //
-//	compogo.WithComponents(
-//	    db_client.Component,      // database client (provides driver name)
-//	    db_migrator.Component,    // migrations
-//	    // ... driver components (postgres, mysql, etc.)
-//	)
+//	app.AddComponents(&db_migrator.Component)
 //
-// The driver name is automatically taken from db-client configuration
-// and used to select the appropriate migration driver.
-var Component = &component.Component{
-	Init: component.StepFunc(func(container container.Container) error {
+// Ручной запуск миграций:
+//
+//	var m *migrate.Migrate
+//	container.Invoke(func(migrator *migrate.Migrate) { m = migrator })
+//	err := m.Up()
+//
+// Структура миграций:
+//
+//	migrations/
+//	├── mysql/
+//	│   ├── 1_init.up.sql
+//	│   └── 1_init.down.sql
+//	└── postgres/
+//	    ├── 1_init.up.sql
+//	    └── 1_init.down.sql
+var Component = compogo.Component{
+	Init: compogo.StepFunc(func(container compogo.Container) error {
 		return container.Provides(
 			NewConfig,
 			NewMigrator,
 		)
 	}),
-	BindFlags: component.BindFlags(func(flagSet flag.FlagSet, container container.Container) error {
+	BindFlags: compogo.BindFlags(func(flagSet flag.FlagSet, container compogo.Container) error {
 		return container.Invoke(func(config *Config) {
 			flagSet.StringVar(&config.Path, PathFieldName, PathDefault, "path to migrations directory")
 			flagSet.BoolVar(&config.AutoMigrate, AutoMigrateFieldName, AutoMigrateDefault, "automatically migrate")
 		})
 	}),
-	Configuration: component.StepFunc(func(container container.Container) error {
+	Configuration: compogo.StepFunc(func(container compogo.Container) error {
 		return container.Invoke(Configuration)
 	}),
-	Execute: component.StepFunc(func(container container.Container) error {
-		return container.Invoke(func(config *Config, migrator *migrate.Migrate, informer logger.Informer) error {
+	Execute: compogo.StepFunc(func(container compogo.Container) error {
+		return container.Invoke(func(config *Config, migrator *migrate.Migrate, logger compogo.Logger) error {
 			if !config.AutoMigrate {
 				return nil
 			}
@@ -60,7 +64,7 @@ var Component = &component.Component{
 
 			version, _, err := migrator.Version()
 
-			informer.Infof("[db-migrator]: up to '%d' version", version)
+			logger.GetLogger("Database").GetLogger("migrator").Infof("up to '%d' version", version)
 
 			return nil
 		})
